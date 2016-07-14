@@ -1,9 +1,10 @@
 import FirebaseAuthenticator from '../authenticators/firebase';
 
 export default {
-	name: 'firebase-auth',
 	before: 'ember-simple-auth',
-	initialize: function(container, app) {
+	name: 'firebase-auth',
+
+	initialize(container/*, app*/) {
 		container.register('authenticator:firebase', FirebaseAuthenticator);
 	}
 }

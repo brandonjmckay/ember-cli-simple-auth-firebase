@@ -1,89 +1,80 @@
 import Base from 'ember-simple-auth/authenticators/base';
 import Firebase from 'firebase';
 import config from '../config/environment';
+const {
+  RSVP,
+  run
+} = Ember;
 
-const { Promise } = Ember.RSVP;
+const callback = function(error, authData) {
+  run(()=> {
+    if (error) {
+      reject(error);
+    } else {
+      resolve(authData);
+    }
+  });
+};
+
+const resolvePromise = function(error, success) {
+  run(()=> {
+    if (error) {
+      reject(error);
+    } else {
+      resolve(success);
+    }
+  });
+};
 
 export default Base.extend({
+  firebase: null,
 
-    init: function() {
-        if (config.firebase) {
-            this.set('firebase', new Firebase(config.firebase));
-        } else {
-            throw new Error("'firebase' not defined in environment");
-        }
-
-        this._super();
-    },
-    firebase: null,
-    restore: function(data) {
-
-        var _this = this;
-
-        return new Promise(function(resolve, reject) {
-
-            if (data.token) {
-
-                _this.get('firebase').authWithCustomToken(data.token, function(error, success) {
-                    Ember.run(function() {
-                        if (error) {
-                            reject(error);
-                        } else {
-                            resolve(success);
-                        }
-                    });
-                });
-
-            } else {
-                reject(new Error('Unable to restore Firebase session: no token found.'));
-            }
-
-        });
-
-    },
-    authenticate: function(options) {
-      var _this = this;
-      if(options.provider === "password" || !options.provider){
-        return new Promise(function(resolve, reject) {
-          _this.get('firebase').authWithPassword({
-              'email': options.email,
-              'password': options.password
-          }, function(error, authData) {
-            Ember.run(function() {
-              if (error) {
-                reject(error);
-              } else {
-                resolve(authData);
-              }
-            });
-          });
-        });
-      } else {
-        return new Promise(function(resolve, reject) {
-          var callback = function(error, authData) {
-            Ember.run(function() {
-              if (error) {
-                reject(error);
-              } else {
-                resolve(authData);
-              }
-            });
-          };
-          if(options.redirect){
-            _this.get('firebase').authWithOAuthRedirect(options.provider, callback);
-          } else {
-            _this.get('firebase').authWithOAuthPopup(options.provider, callback)
-          }
-        });
-      }
-    },
-    invalidate: function(data) {
-
-        var _this = this;
-
-        return new Promise(function(resolve, reject) {
-            _this.get('firebase').unauth();
-            resolve(data);
-        });
+  init() {
+    if (config.firebase && config.firebase.authDomain) {
+      this.set('firebase', new Firebase(config.firebase.authDomain));
+    } else {
+      throw new Error("'firebase' not defined in environment");
     }
+
+    this._super(...arguments);
+  },
+
+  restore(data) {
+    return new RSVP.Promise((resolve, reject)=> {
+      if (data.token) {
+        this.get('firebase').authWithCustomToken(data.token, resolvePromise(error, success));
+
+      } else {
+        reject(new Error('Unable to restore Firebase session: no token found.'));
+      }
+    });
+  },
+
+  authenticate(options) {
+    const firebase = this.get('firebase');
+
+    if (options.provider === "password" || !options.provider) {
+      const authentication = { email: options.email, password: options.password };
+
+      return new RSVP.Promise((resolve, reject)=> {
+        this.get('firebase').authWithPassword(authentication, resolvePromise(error, authData));
+      });
+
+    } else {
+      return new RSVP.Promise((resolve, reject)=> {
+        if (options.redirect) {
+          firebase.authWithOAuthRedirect(options.provider, callback);
+        } else {
+          firebase.authWithOAuthPopup(options.provider, callback)
+        }
+      });
+    }
+  },
+
+  invalidate(data) {
+    return new RSVP.Promise((resolve, reject)=> {
+      this.get('firebase').unauth();
+      resolve(data);
+    });
+  }
 });
