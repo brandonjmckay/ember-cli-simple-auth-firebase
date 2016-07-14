@@ -53,22 +53,19 @@ export default Base.extend({
   authenticate(options) {
     const firebase = this.get('firebase');
 
-    if (options.provider === "password" || !options.provider) {
-      const authentication = { email: options.email, password: options.password };
-
-      return new RSVP.Promise((resolve, reject)=> {
+    return new RSVP.Promise((resolve, reject)=> {
+      if (options.provider === "password" || !options.provider) {
+        const authentication = { email: options.email, password: options.password };
         this.get('firebase').authWithPassword(authentication, resolvePromise(error, authData));
-      });
 
-    } else {
-      return new RSVP.Promise((resolve, reject)=> {
+      } else {
         if (options.redirect) {
           firebase.authWithOAuthRedirect(options.provider, callback);
         } else {
           firebase.authWithOAuthPopup(options.provider, callback)
         }
-      });
-    }
+      }
+    });
   },
 
   invalidate(data) {
